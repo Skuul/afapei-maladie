@@ -17,9 +17,7 @@ _Enregistrement = namedtuple('Enregistrement',
     'Heures',
     'Arret_initial']
 )
-_Absence = namedtuple('Absence', ['debut', 'fin', 'motif'])
-
-e = _Absence(0,0,0)
+_Absence = namedtuple('Absence', ['debut', 'fin', 'motif', 'heures', 'heures_3_premiers_jours'])
 
 def _estJourSuivant(d1:datetime, d2:datetime):
     modified_date = copy(d1) + timedelta(days=1)
@@ -38,29 +36,34 @@ def _filterAbsences(base: List[_Enregistrement]):
         d.items()
     )
 
+def _formatAbsence(absence):
+    if absence.Motif == 'MAL':
+        return _Absence(absence.Date_planning, absence.Date_planning, absence.Motif, absence.Heures, absence.Heures)
+    else:
+        return _Absence(absence.Date_planning, absence.Date_planning, absence.Motif, absence.Heures, '')
+
 def _getAbsences(absences: List[_Enregistrement]) -> List[_Absence]:
     absencesSalarie = []
     for absence in absences:
         if not len(absencesSalarie):
-            absencesSalarie.append(
-                _Absence(absence.Date_planning, absence.Date_planning, absence.Motif)
-            )
+            absencesSalarie.append(_formatAbsence(absence))
             continue
         else:
             derniereAbsence = absencesSalarie.pop()
             estMemeMotif = derniereAbsence.motif == absence.Motif
-            if estMemeMotif:
-                jourSuivant = _estJourSuivant(derniereAbsence.fin, absence.Date_planning)
-                if _estJourSuivant(derniereAbsence.fin, absence.Date_planning):
-                    derniereAbsence = derniereAbsence._replace(fin=absence.Date_planning)
-                    absencesSalarie.append(derniereAbsence)
+            if estMemeMotif and _estJourSuivant(derniereAbsence.fin, absence.Date_planning):
+                derniereAbsence = derniereAbsence._replace(fin=absence.Date_planning, heures = (derniereAbsence.heures + absence.Heures))
+
+                if absence.Motif == 'MAL' and _pasPlusDeTroisJours(derniereAbsence.debut, absence.Date_planning):
+                    derniereAbsence = derniereAbsence._replace(heures_3_premiers_jours=(derniereAbsence.heures_3_premiers_jours + absence.Heures))
+
+                absencesSalarie.append(derniereAbsence)
             else:
                 absencesSalarie.append(derniereAbsence)
 
                 # Ajouter une absence
-                absencesSalarie.append(
-                    _Absence(absence.Date_planning, absence.Date_planning, absence.Motif)
-                )
+                absencesSalarie.append(_formatAbsence(absence))
+
     return absencesSalarie
 
 def _processBase(base: List[_Enregistrement]):
@@ -68,8 +71,7 @@ def _processBase(base: List[_Enregistrement]):
 
     for matricule, absences in _filterAbsences(base):
         print(f'Looking at {matricule}...')
-        absencesSalarie = _getAbsences(absences)
-        absencesSalaries[matricule] = absencesSalarie
+        absencesSalaries[matricule] = _getAbsences(absences)
 
     return absencesSalaries
 
@@ -80,10 +82,10 @@ def algo(filename:str, outDir):
     
     base = []
 
-    #process file
     it = iter(sheet.rows)
     # Ignore header
     next(it)
+
     for row in it:
         base.append(_Enregistrement(*(cell.value for cell in row)))
 
@@ -104,12 +106,40 @@ def _outputXlsx(absencesSalaries:Dict[int, _Absence], filename):
         'Matricule',
         'Début',
         'Fin',
-        'Motif'
+        'Motif',
+        'Heures',
+        'Nombre de jours',
+        'Heures pendant les 3 premiers jours', # MAL uniquement
+        'Nombre de jours comptés' # MAL uniquement
     ))
 
     # Data
     for matricule, absences in absencesSalaries.items():
         for absence in absences:
-            ws.append((matricule, *absence))
+            nbJours = (absence.fin - absence.debut).days+1
+
+            # Absence maladie, infos supplémentaires
+            if absence.motif == 'MAL':
+                ws.append((
+                    matricule,          # 0
+                    *(absence[:4]),     # 1:4
+                    nbJours,            # 5
+                    absence[4],         # 6
+                    min(nbJours, 3)     #7
+                ))
+            else:
+                ws.append((
+                    matricule,  # 0
+                    *(absence[:4]),   # 1:4
+                    nbJours,    # 5
+                    None,       # 6
+                    None        # 7
+                ))
     
     wb.save(filename)
+
+def _pasPlusDeTroisJours(d1:datetime, d2:datetime):
+    modified_date = copy(d1) + timedelta(days=3)
+    s1 = datetime.strftime(modified_date, "%Y/%m/%d")
+    s2 = datetime.strftime(d2, "%Y/%m/%d")
+    return s1 == s2
