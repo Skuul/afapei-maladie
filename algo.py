@@ -88,20 +88,10 @@ def algo(filename:str, outDir):
         base.append(_Enregistrement(*(cell.value for cell in row)))
 
     absencesSalaries = _processBase(base)
-    outputFileName = fs_sep.join([outDir, filename.split(fs_sep)[-1].split(".")[0]])
-    _outputTxt(absencesSalaries, outputFileName+'.txt')
-    _outputXlsx(absencesSalaries, outputFileName+'.xlsx')
+    outputFileName = fs_sep.join([outDir, filename.split(fs_sep)[-1].split(".")[0]]) + '.xlsx'
+    _outputXlsx(absencesSalaries, outputFileName)
     print(f'Done with {filename.split(fs_sep)[-1]}')
     # Write to file
-
-def _outputTxt(absencesSalaries:Dict[int, _Absence], filename):
-    with open(filename, 'w') as file:
-        for matricule, absences in absencesSalaries.items():
-            lines = (
-                f'{matricule}: {_displayAbsence(absence)}\n'
-                for absence in absences
-            )
-            file.writelines(lines)
 
 def _displayAbsence(absence:_Absence):
     return absence.debut, absence.fin, absence.motif
