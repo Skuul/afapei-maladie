@@ -5,5 +5,5 @@ pipenv install
 
 # Lancement
 ```
-pipenv run main.py
+pipenv run python main.py
 ```
