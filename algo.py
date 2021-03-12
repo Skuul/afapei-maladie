@@ -93,9 +93,6 @@ def algo(filename:str, outDir):
     print(f'Done with {filename.split(fs_sep)[-1]}')
     # Write to file
 
-def _displayAbsence(absence:_Absence):
-    return absence.debut, absence.fin, absence.motif
-
 def _outputXlsx(absencesSalaries:Dict[int, _Absence], filename):
     wb = openpyxl.Workbook()
     wb.iso_dates = True
