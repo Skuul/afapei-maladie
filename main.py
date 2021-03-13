@@ -2,7 +2,7 @@ import os
 from sys import argv
 import openpyxl
 
-if len(argv) and argv[0] == '-y':
+if len(argv) > 1 and argv[1] == '-y':
     from algos.avecService import algo
 else:
     from algos.sansService import algo
